@@ -1,10 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import UserModel from './models/user.js';
-import TaskModel from './models/task.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import UserModel from './models/user.js';
+import TaskModel from './models/task.js';
+import ListModel from './models/list.js';
+import WorkspaceModel from './models/workspace.js';
 
 dotenv.config();
 const app = express();
@@ -95,9 +97,30 @@ const authenticateToken = (req, res, next) => {
 };
 
 app.get('/api/tasks', authenticateToken, async (req, res) => {
-    const userId = req.user.userId;
-    const tasks = await TaskModel.find({ userId })
-    res.json(tasks)
+    try {
+        const userId = req.user.userId;
+        const tasks = await TaskModel.find({ userId })
+        res.json(tasks)
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
+    try {
+        const taskId = req.params.id;
+        const userId = req.user.userId;
+
+        const task = await TaskModel.findOne({ _id: taskId, userId });
+
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        res.json(task);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/tasks', authenticateToken, async (req, res) => {
@@ -177,6 +200,115 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
         res.status(500).json({ error: err.message })
     }
 });
+
+app.get('/api/lists', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const query = { userId };
+
+        const lists = await ListModel.find(query);
+        res.json(lists);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const listId = req.params.id;
+        const userId = req.user.userId;
+
+        const list = await ListModel.findOne({ _id: listId, userId });
+
+        if (!list) {
+            return res.status(404).json({ error: 'List not found' })
+        }
+
+        res.json(list)
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+});
+
+app.post('/api/lists', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { name, workspaceId } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: 'List name is required' })
+        }
+
+        const list = await ListModel.create({
+            name,
+            userId,
+            workspaceId: workspaceId || undefined,
+            createdAt: new Date()
+        });
+
+        res.status(201).json(list);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.put('/api/lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const listId = req.params.id;
+        const userId = req.user.userId;
+        const { name, workspaceId } = req.body;
+
+        const list = await ListModel.findById(listId);
+
+        if (!list) {
+            return res.status(404).json({ error: 'List not found' });
+        }
+
+        if (list.userId.toString() !== userId) {
+            return res.status(403).json({ error: 'Not authorized to update this list' });
+        }
+
+        const updatedList = await ListModel.findByIdAndUpdate(
+            listId,
+            {
+                ...(name && { name }),
+                ...(workspaceId !== undefined && { workspaceId })
+            },
+            { new: true, runValidators: true }
+        );
+
+        res.json(updatedList);
+    } catch (err) {
+        res.status(400).json({ error: err.message })
+    }
+});
+
+app.delete('/api/lists/:id', authenticateToken, async (req, res) => {
+    try {
+        const listId = req.params.id;
+        const userId = req.user.userId;
+
+        const list = await ListModel.findOne({ _id: listId, userId });
+
+        if (!list) {
+            return res.status(404).json({ error: 'List not found or not authorized' });
+        }
+
+        await ListModel.findByIdAndDelete(listId);
+
+        res.json({ message: 'List deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/workspaces', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
 
 const run = async () => {
     try {
