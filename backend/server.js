@@ -7,6 +7,7 @@ import UserModel from './models/user.js';
 import TaskModel from './models/task.js';
 import ListModel from './models/list.js';
 import WorkspaceModel from './models/workspace.js';
+import cors from 'cors';
 
 dotenv.config();
 const app = express();
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 const CONNECTION = process.env.CONNECTION;
 
 app.use(express.json());
+app.use(cors());
 
 const generateToken = (userId) => {
     return jwt.sign(
@@ -305,10 +307,179 @@ app.delete('/api/lists/:id', authenticateToken, async (req, res) => {
 app.get('/api/workspaces', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
+
+        const workspaces = await WorkspaceModel.find({
+            $or: [
+                { ownerID: userId },
+                { members: userId }
+            ]
+        });
+
+        res.json(workspaces);
     } catch (err) {
-        res.status(500).json({ error: err.message })
+        res.status(500).json({ error: err.message });
     }
 })
+
+app.get('/api/workspaces/:id', authenticateToken, async (req, res) => {
+    try {
+        const workspaceId = req.params.id;
+        const userId = req.user.userId;
+
+        const workspace = await WorkspaceModel.findById(workspaceId);
+
+        if (!workspace) {
+            return res.status(404).json({ error: 'Workspace not found' });
+        }
+
+        const isOwner = workspace.ownerId.toString() === userId;
+        const isMember = workspace.members.some(member => member.toString() === userId);
+
+        if (!isOwner && !isMember) {
+            return res.status(403).json({ error: 'Not authorized to view this workspace' });
+        }
+
+        res.json(workspace);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/workspaces', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { name, members } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: 'Workspace name is required' });
+        }
+
+        const workspace = await WorkspaceModel.create({
+            name,
+            ownerId: userId,
+            members: members || [],
+            createdAt: new Date()
+        });
+
+        res.status(201).json(workspace);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.put('/api/workspaces/:id', authenticateToken, async (req, res) => {
+    try {
+        const workspaceId = req.params.id;
+        const userId = req.user.userId;
+        const { name, members } = req.body;
+
+        const workspace = await WorkspaceModel.findById(workspaceId);
+
+        if (!workspace) {
+            return res.status(404).json({ error: 'Workspace not found' });
+        }
+
+        if (workspace.ownerId.toString() !== userId) {
+            return res.status(403).json({ error: 'Only workspace owner can update' });
+        }
+
+        const updatedWorkspace = await WorkspaceModel.findByIdAndUpdate(
+            workspaceId,
+            {
+                ...(name && { name }),
+                ...(members !== undefined && { members })
+            },
+            { new: true, runValidators: true }
+        );
+
+        res.json(updatedWorkspace);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.delete('/api/workspaces/:id', authenticateToken, async (req, res) => {
+    try {
+        const workspaceId = req.params.id;
+        const userId = req.user.userId;
+
+        const workspace = await WorkspaceModel.findById(workspaceId);
+
+        if (!workspace) {
+            return res.status(404).json({ error: 'Workspace not found' });
+        }
+
+        if (workspace.ownerId.toString() !== userId) {
+            return res.status(403).json({ error: 'Only workspace owner can delete' });
+        }
+
+        await WorkspaceModel.findByIdAndDelete(workspaceId);
+
+        res.json({ message: 'Workspace deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/workspaces/:id/members', authenticateToken, async (req, res) => {
+    try {
+        const workspaceId = req.params.id;
+        const userId = req.user.userId;
+        const { memberId } = req.body;
+
+        if (!memberId) {
+            return res.status(400).json({ error: 'Member ID is required' });
+        }
+
+        const workspace = await WorkspaceModel.findById(workspaceId);
+
+        if (!workspace) {
+            return res.status(404).json({ error: 'Workspace not found' });
+        }
+
+        if (workspace.ownerId.toString() !== userId) {
+            return res.status(403).json({ error: 'Only workspace owner can add members' });
+        }
+
+        if (workspace.members.includes(memberId)) {
+            return res.status(400).json({ error: 'User is already a member' });
+        }
+
+        workspace.members.push(memberId);
+        await workspace.save();
+
+        res.json(workspace);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.delete('/api/workspaces/:id/members/:memberId', authenticateToken, async (req, res) => {
+    try {
+        const workspaceId = req.params.id;
+        const memberId = req.params.memberId;
+        const userId = req.user.userId;
+
+        const workspace = await WorkspaceModel.findById(workspaceId);
+
+        if (!workspace) {
+            return res.status(404).json({ error: 'Workspace not found' });
+        }
+
+        if (workspace.ownerId.toString() !== userId) {
+            return res.status(403).json({ error: 'Only workspace owner can remove members' });
+        }
+
+        workspace.members = workspace.members.filter(
+            member => member.toString() !== memberId
+        );
+        await workspace.save();
+
+        res.json(workspace);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 
 const run = async () => {
     try {
