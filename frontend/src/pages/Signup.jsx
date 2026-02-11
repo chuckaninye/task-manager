@@ -20,25 +20,38 @@ function Signup() {
             await register(email, password, name);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.error || 'Signup failed');
+            setError(err.message || 'Signup failed');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div>
-            <h1>Sign Up</h1>
-            <form onSubmit={handleSubmit}>
-                {error && <p style={{ color: 'red' }}>{error}</p>}
-                <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <input type="password" placeholder={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
-            </form>
-            <p>
-                Already have an account? <Link to="/login">Login</Link>
-            </p>
+        <div className="app-page">
+            <div className="card">
+                <div className="auth-header">
+                    <h1>Sign Up</h1>
+                </div>
+                <form onSubmit={handleSubmit}>
+                    {error && <p className="error">{error}</p>}
+                    <div className="form-group">
+                        <label htmlFor="name">Name</label>
+                        <input id="name" type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="email">Email</label>
+                        <input id="email" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">Password</label>
+                        <input id="password" type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} required />
+                    </div>
+                    <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
+                </form>
+                <p className="auth-footer">
+                    Already have an account? <Link to="/login">Login</Link>
+                </p>
+            </div>
         </div>
     );
 }

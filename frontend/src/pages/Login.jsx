@@ -18,26 +18,36 @@ function Login() {
             await login(email, password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.error || 'Login failed');
+            setError(err.message || 'Login failed');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div>
-            <h1>Login</h1>
-            <form onSubmit={handleSubmit}>
-                {error && <p style={{ color: 'red' }}>{error}</p>}
-                <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required/>
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Logging in...' : 'Login'}
-                </button>
-            </form>
-            <p>
-                Don't have an account? <Link to="/signup">Sign up</Link>
-            </p>
+        <div className="app-page">
+            <div className="card">
+                <div className="auth-header">
+                    <h1>Login</h1>
+                </div>
+                <form onSubmit={handleSubmit}>
+                    {error && <p className="error">{error}</p>}
+                    <div className="form-group">
+                        <label htmlFor="email">Email</label>
+                        <input id="email" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">Password</label>
+                        <input id="password" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    </div>
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? 'Logging in...' : 'Login'}
+                    </button>
+                </form>
+                <p className="auth-footer">
+                    Don't have an account? <Link to="/signup">Sign up</Link>
+                </p>
+            </div>
         </div>
     );
 }

@@ -17,6 +17,22 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+api.interceptors.response.use(
+    (response) => response,
+    (err) => {
+        const message =
+            err.response?.data?.error ||
+            (err.response?.status === 401 ? 'Please log in again' : 'Something went wrong');
+        if (err.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+
+        return Promise.reject(new Error(message));
+    }
+)
+
 export const authAPI = {
     register: (data) => api.post('/auth/register', data),
     login: (data) => api.post('/auth/login', data),
